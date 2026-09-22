@@ -1,0 +1,704 @@
+[
+    {
+        "id": "3b9534016f669eca",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "c8b63c3c23aa4954",
+        "type": "serial-port",
+        "name": "",
+        "serialport": "/dev/ttyUSB0",
+        "serialbaud": "9600",
+        "databits": 8,
+        "parity": "none",
+        "stopbits": 1,
+        "waitfor": "",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "\\n",
+        "bin": "false",
+        "out": "char",
+        "addchar": "ASCii strings",
+        "responsetimeout": 10000
+    },
+    {
+        "id": "83be010db0a46a32",
+        "type": "ui-base",
+        "name": "My Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "dc84a5ec13bc84eb",
+        "type": "ui-theme",
+        "name": "Default Theme",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094CE",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "104cf9f4cf99a665",
+        "type": "ui-page",
+        "name": "Cafeteria Dashboard",
+        "ui": "83be010db0a46a32",
+        "path": "/cafeteria",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "dc84a5ec13bc84eb",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": true,
+        "disabled": false
+    },
+    {
+        "id": "79463d186665542c",
+        "type": "ui-group",
+        "name": "Food Waste Monitor",
+        "page": "104cf9f4cf99a665",
+        "width": 6,
+        "height": 1,
+        "order": 1,
+        "showTitle": false,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "06b0149ad0ba149d",
+        "type": "ui-group",
+        "name": "Daily Stats",
+        "page": "104cf9f4cf99a665",
+        "width": 6,
+        "height": 1,
+        "order": 4,
+        "showTitle": false,
+        "className": "",
+        "visible": false,
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "8be4956b52867ba2",
+        "type": "ui-group",
+        "name": "Maintenance Only",
+        "page": "104cf9f4cf99a665",
+        "width": 6,
+        "height": 1,
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": false,
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "a733389bbb41f5bf",
+        "type": "ui-group",
+        "name": "Graph",
+        "page": "104cf9f4cf99a665",
+        "width": 6,
+        "height": 1,
+        "order": 2,
+        "showTitle": false,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "85f8c0ad4b246606",
+        "type": "serial in",
+        "z": "3b9534016f669eca",
+        "name": "Food Waste Scale Input",
+        "serial": "c8b63c3c23aa4954",
+        "x": 100,
+        "y": 120,
+        "wires": [
+            [
+                "0b72968c1fe0d99f"
+            ]
+        ]
+    },
+    {
+        "id": "b487deaccb32b34d",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "d": true,
+        "name": "Clean Weight",
+        "func": "let raw = msg.payload.toString();\n\nlet match = raw.match(/-?\\d+(\\.\\d+)?/);\nif (!match) return null;\n\nlet weight = parseFloat(match[0]);\n\nlet minChange = 0.10;\nlet stableDelay = 1500;\n\nlet lastWeight = context.get(\"lastWeight\");\nlet lastTime = context.get(\"lastTime\") || 0;\nlet now = Date.now();\n\nif (lastWeight !== undefined) {\n    let diff = Math.abs(weight - lastWeight);\n\n    if (diff < minChange) return null;\n    if (now - lastTime < stableDelay) return null;\n}\n\ncontext.set(\"lastWeight\", weight);\ncontext.set(\"lastTime\", now);\n\nmsg.payload = weight;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 120,
+        "wires": [
+            [
+                "569df630674c34f9",
+                "8ef5b70f03b4f687",
+                "c4c7b42dd424f471"
+            ]
+        ]
+    },
+    {
+        "id": "030e085e41117983",
+        "type": "file",
+        "z": "3b9534016f669eca",
+        "name": "Food Waste CSV Logger (Raw)",
+        "filename": "/home/sustainabilitydept/food_waste_log.csv",
+        "filenameType": "str",
+        "appendNewline": true,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 910,
+        "y": 640,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "935004e5c404a7e2",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "CSV Logger ",
+        "func": "let weight = Number(msg.payload);\nif (isNaN(weight)) return null;\n\nmsg.payload = {\n    date: new Date().toLocaleDateString(),\n    time: new Date().toLocaleTimeString(),\n    weight: weight,\n    dailyTotal: flow.get(\"dailyTotal\") || 0,\n    bagCount: flow.get(\"bagCount\") || 0,\n    event: \"weight_update\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 640,
+        "wires": [
+            [
+                "030e085e41117983"
+            ]
+        ]
+    },
+    {
+        "id": "393b48367d6798ba",
+        "type": "ui-button",
+        "z": "3b9534016f669eca",
+        "d": true,
+        "group": "8be4956b52867ba2",
+        "name": "Bag Replaced",
+        "label": "Bag Changed",
+        "order": 2,
+        "width": "3",
+        "height": "1",
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "#185e3a",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 260,
+        "y": 440,
+        "wires": [
+            [
+                "3a0ce7ee5551d681"
+            ]
+        ]
+    },
+    {
+        "id": "569df630674c34f9",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "Add Daily Total ",
+        "func": "let weight = Number(msg.payload);\nif (isNaN(weight)) return null;\n\n// ==========================\n// SETTINGS\n// ==========================\n\n// A drop this large means a bag is probably being removed\nlet minDump = 0.2;          // kg\n\n// Readings within this amount count as \"stable\"\nlet stableTolerance = 0.10; // kg\n\n// Number of consecutive stable readings required\nlet stableReadingsNeeded = 2;\n\n\n// ==========================\n// GET STORED VALUES\n// ==========================\n\nlet lastWeight = flow.get(\"lastWeight\");\nlet savedTotal = flow.get(\"savedTotal\") || 0;\n\nlet changingBag = flow.get(\"changingBag\") || false;\nlet oldBagWeight = flow.get(\"oldBagWeight\") || 0;\n\nlet stableCount = flow.get(\"stableCount\") || 0;\nlet previousChangeWeight = flow.get(\"previousChangeWeight\");\n\n\n// ==========================\n// FIRST READING\n// ==========================\n\nif (lastWeight === undefined) {\n\n    flow.set(\"lastWeight\", weight);\n\n    msg.payload = Number((savedTotal + weight).toFixed(2));\n\n    return msg;\n}\n\n\n// ==========================\n// NORMAL OPERATION\n// ==========================\n\nif (!changingBag) {\n\n    let difference = weight - lastWeight;\n\n    // Detect a large downward change\n    if (difference <= -minDump) {\n\n        // Bag removal has started\n        changingBag = true;\n\n        // Remember the weight immediately before removal\n        oldBagWeight = lastWeight;\n\n        flow.set(\"changingBag\", true);\n        flow.set(\"oldBagWeight\", oldBagWeight);\n\n        flow.set(\"stableCount\", 0);\n        flow.set(\"previousChangeWeight\", weight);\n\n        // Keep displaying the old cumulative total\n        msg.payload = Number(\n            (savedTotal + oldBagWeight).toFixed(2)\n        );\n\n        return msg;\n    }\n\n    // Normal reading\n    flow.set(\"lastWeight\", weight);\n\n    msg.payload = Number(\n        (savedTotal + weight).toFixed(2)\n    );\n\n    return msg;\n}\n\n\n// ==========================\n// BAG IS CURRENTLY CHANGING\n// ==========================\n\nif (changingBag) {\n\n    // Compare current reading to previous reading\n    // during the bag change\n    if (previousChangeWeight !== undefined &&\n        Math.abs(weight - previousChangeWeight) <= stableTolerance) {\n\n        stableCount++;\n\n    } else {\n\n        stableCount = 0;\n    }\n\n    flow.set(\"stableCount\", stableCount);\n    flow.set(\"previousChangeWeight\", weight);\n\n\n    // ==========================\n    // NEW BAG HAS STABILIZED\n    // ==========================\n\n    if (stableCount >= stableReadingsNeeded) {\n\n        // Add completed bag to permanent total\n        savedTotal += oldBagWeight;\n\n        flow.set(\"savedTotal\", savedTotal);\n\n        // New stable reading becomes current bag weight\n        flow.set(\"lastWeight\", weight);\n\n        // Exit bag-changing mode\n        flow.set(\"changingBag\", false);\n        flow.set(\"stableCount\", 0);\n        flow.set(\"previousChangeWeight\", undefined);\n\n        msg.payload = Number(\n            (savedTotal + weight).toFixed(2)\n        );\n\n        return msg;\n    }\n\n\n    // While bag is being removed, freeze display\n    msg.payload = Number(\n        (savedTotal + oldBagWeight).toFixed(2)\n    );\n\n    return msg;\n}",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 660,
+        "y": 480,
+        "wires": [
+            [
+                "8f359317fbbf4864",
+                "8ef5b70f03b4f687"
+            ]
+        ]
+    },
+    {
+        "id": "3a0ce7ee5551d681",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "d": true,
+        "name": "Bags Changed",
+        "func": "let bagCount = flow.get(\"bagCount\") || 0;\nbagCount += 1;\n\nflow.set(\"bagCount\", bagCount);\nflow.set(\"lastAcceptedWeight\", 0);\n\nmsg.payload = bagCount;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 440,
+        "wires": [
+            [
+                "9ac753573af9a588"
+            ]
+        ]
+    },
+    {
+        "id": "7bea578654a0806e",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "End Day",
+        "func": "let total = flow.get(\"dailyTotal\") || 0;\nlet bags = flow.get(\"bagCount\") || 0;\n\nlet report = {\n    date: new Date().toLocaleDateString(),\n    time: new Date().toLocaleTimeString(),\n    dailyTotal: total.toFixed(2),\n    bagCount: bags,\n    event: \"end_of_day\"\n};\n\nflow.set(\"dailyTotal\", 0);\nflow.set(\"bagCount\", 0);\nflow.set(\"lastAcceptedWeight\", 0);\nflow.set(\"bagsChanged\", 0);\n\nlet reportMsg = {\n    payload: report\n};\n\nlet totalResetMsg = {\n    payload: \"0.00\"\n};\n\nlet bagResetMsg = {\n    payload: 0\n};\n\nreturn [\n    reportMsg,\n    totalResetMsg,\n    bagResetMsg\n];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 500,
+        "wires": [
+            [],
+            [
+                "8f359317fbbf4864",
+                "935004e5c404a7e2"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "23b08e9ba19ee4ef",
+        "type": "ui-button",
+        "z": "3b9534016f669eca",
+        "group": "79463d186665542c",
+        "name": "End Day Report",
+        "label": "End Day Report",
+        "order": 3,
+        "width": "6",
+        "height": "1",
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "#185e3a",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 260,
+        "y": 500,
+        "wires": [
+            [
+                "7bea578654a0806e"
+            ]
+        ]
+    },
+    {
+        "id": "c4c7b42dd424f471",
+        "type": "ui-template",
+        "z": "3b9534016f669eca",
+        "group": "8be4956b52867ba2",
+        "page": "",
+        "ui": "",
+        "name": "UI Formatting",
+        "order": 1,
+        "width": "1",
+        "height": "1",
+        "head": "",
+        "format": "<style>\n/* Overall page */\nbody {\n    background: #f3f5f7 !important;\n    font-family: Inter, Arial, sans-serif;\n}\n\n/* Dashboard page content width */\n.nrdb-ui-page {\n    max-width: 1400px;\n    margin: 0 auto;\n}\n\n/* Group cards */\n.v-card {\n    border-radius: 22px !important;\n    box-shadow: 0 8px 24px rgba(0,0,0,0.06) !important;\n    border: 1px solid rgba(0,0,0,0.04);\n}\n\n/* Group titles */\n.nrdb-ui-group-header {\n    font-weight: 700 !important;\n    letter-spacing: 0.5px;\n}\n\n/* Buttons */\n.v-btn {\n    border-radius: 14px !important;\n    text-transform: none !important;\n    font-weight: 700 !important;\n    letter-spacing: 0.2px !important;\n    min-height: 48px;\n}\n\n/* Charts */\ncanvas {\n    border-radius: 16px;\n}\n</style>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 940,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8f359317fbbf4864",
+        "type": "ui-template",
+        "z": "3b9534016f669eca",
+        "group": "79463d186665542c",
+        "page": "",
+        "ui": "",
+        "name": "UI - Today's Waste",
+        "order": 2,
+        "width": "0",
+        "height": "0",
+        "head": "",
+        "format": "<template>\n    <div class=\"weight-card\">\n        <div class=\"weight-header\">\n            <span class=\"weight-title\">CURRENT FOOD WASTE</span>\n            <span class=\"live-status\">\n                <span class=\"live-dot\"></span>\n                LIVE\n            </span>\n        </div>\n\n        <div class=\"weight-reading\">\n            {{ msg?.payload ?? \"0.00\" }}\n            <span class=\"weight-unit\">lb</span>\n        </div>\n\n        <div class=\"weight-subtitle\">\n            Cafeteria Scale\n        </div>\n    </div>\n</template>\n\n<style>\n.weight-card {\n    width: 100%;\n    min-height: 230px;\n    padding: 28px 32px;\n    border-radius: 24px;\n    background: linear-gradient(145deg, #ffffff, #f5f7fa);\n    box-shadow:\n        0 12px 30px rgba(0,0,0,0.08),\n        inset 0 1px 0 rgba(255,255,255,0.8);\n    display: flex;\n    flex-direction: column;\n    justify-content: space-between;\n    box-sizing: border-box;\n}\n\n.weight-header {\n    display: flex;\n    justify-content: space-between;\n    align-items: center;\n}\n\n.weight-title {\n    font-size: 14px;\n    font-weight: 700;\n    letter-spacing: 1.5px;\n    opacity: 0.55;\n}\n\n.live-status {\n    display: flex;\n    align-items: center;\n    gap: 7px;\n    font-size: 12px;\n    font-weight: 700;\n    letter-spacing: 1px;\n    opacity: 0.7;\n}\n\n.live-dot {\n    width: 9px;\n    height: 9px;\n    border-radius: 50%;\n    background: #32c76f;\n    box-shadow: 0 0 0 5px rgba(50,199,111,0.13);\n}\n\n.weight-reading {\n    text-align: center;\n    font-size: clamp(58px, 8vw, 92px);\n    font-weight: 750;\n    letter-spacing: -4px;\n    line-height: 1;\n    margin: 25px 0 15px;\n}\n\n.weight-unit {\n    font-size: 24px;\n    font-weight: 600;\n    letter-spacing: 0;\n    opacity: 0.45;\n    margin-left: 8px;\n}\n\n.weight-subtitle {\n    text-align: center;\n    font-size: 13px;\n    opacity: 0.45;\n}\n</style>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 910,
+        "y": 480,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9ac753573af9a588",
+        "type": "ui-template",
+        "z": "3b9534016f669eca",
+        "d": true,
+        "group": "79463d186665542c",
+        "page": "",
+        "ui": "",
+        "name": "UI - Bags Replaced",
+        "order": 1,
+        "width": "0",
+        "height": "0",
+        "head": "",
+        "format": "<template>\n    <div class=\"stat-card\">\n        <div class=\"stat-label\">BAGS REPLACED</div>\n\n        <div class=\"bag-value\">\n            {{ msg?.payload ?? 0 }}\n        </div>\n\n        <div class=\"stat-caption\">\n            Collection bags replaced today\n        </div>\n    </div>\n</template>\n\n<style>\n.stat-card {\n    width: 100%;\n    padding: 24px 26px;\n    border-radius: 20px;\n    background: white;\n    box-shadow: 0 8px 24px rgba(0,0,0,0.06);\n    box-sizing: border-box;\n}\n\n.stat-label {\n    font-size: 13px;\n    font-weight: 700;\n    letter-spacing: 1.2px;\n    opacity: 0.45;\n    margin-bottom: 10px;\n}\n\n.bag-value {\n    font-size: 42px;\n    font-weight: 750;\n    letter-spacing: -1px;\n    line-height: 1;\n}\n\n.stat-caption {\n    margin-top: 12px;\n    font-size: 12px;\n    opacity: 0.4;\n}\n</style>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 670,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "7c3b36ac61c7f4f2",
+        "type": "ui-chart",
+        "z": "3b9534016f669eca",
+        "group": "a733389bbb41f5bf",
+        "name": "UI - Graph",
+        "label": "Food Waste Over Time",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Weight (lbs)",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "0",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": "0",
+        "showLegend": false,
+        "removeOlder": "30",
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "200",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": 6,
+        "height": 8,
+        "className": "",
+        "interpolation": "linear",
+        "x": 1090,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8ef5b70f03b4f687",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "Function - Format for Graph",
+        "func": "msg.payload = Number(msg.payload);\nmsg.topic = \"Weight\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 240,
+        "wires": [
+            [
+                "7c3b36ac61c7f4f2"
+            ]
+        ]
+    },
+    {
+        "id": "f8bc761d4b4e301d",
+        "type": "inject",
+        "z": "3b9534016f669eca",
+        "name": "US Lunch End",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "25 12 * * 1,2,3,4,5",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 460,
+        "y": 700,
+        "wires": [
+            [
+                "910c5add22f164d6"
+            ]
+        ]
+    },
+    {
+        "id": "ca2768107782e6e3",
+        "type": "file",
+        "z": "3b9534016f669eca",
+        "name": "CSV Logger (US)",
+        "filename": "/home/sustainabilitydept/US_waste_log.csv",
+        "filenameType": "str",
+        "appendNewline": true,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 870,
+        "y": 700,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "910c5add22f164d6",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "updated_logger",
+        "func": "let weight = Number(msg.payload);\nif (isNaN(weight)) return null;\n\nmsg.payload = {\n    date: new Date().toLocaleDateString(),\n    time: new Date().toLocaleTimeString(),\n    weight: weight,\n    dailyTotal: flow.get(\"dailyTotal\") || 0,\n    bagCount: flow.get(\"bagCount\") || 0,\n    event: \"weight_update\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 660,
+        "y": 700,
+        "wires": [
+            [
+                "ca2768107782e6e3"
+            ]
+        ]
+    },
+    {
+        "id": "1961a1f21310e90a",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "updated_logger",
+        "func": "let weight = Number(msg.payload);\nif (isNaN(weight)) return null;\n\nmsg.payload = {\n    date: new Date().toLocaleDateString(),\n    time: new Date().toLocaleTimeString(),\n    weight: weight,\n    dailyTotal: flow.get(\"dailyTotal\") || 0,\n    bagCount: flow.get(\"bagCount\") || 0,\n    event: \"weight_update\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 660,
+        "y": 760,
+        "wires": [
+            [
+                "8c7a8f95fa2f6072"
+            ]
+        ]
+    },
+    {
+        "id": "c7c6fbb689401e9f",
+        "type": "inject",
+        "z": "3b9534016f669eca",
+        "name": "MS Lunch End",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "15 01 * * 1,2,3,4,5",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 460,
+        "y": 760,
+        "wires": [
+            [
+                "1961a1f21310e90a"
+            ]
+        ]
+    },
+    {
+        "id": "8c7a8f95fa2f6072",
+        "type": "file",
+        "z": "3b9534016f669eca",
+        "name": "CSV Logger (MS)",
+        "filename": "/home/sustainabilitydept/MS_waste_log.csv",
+        "filenameType": "str",
+        "appendNewline": true,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 870,
+        "y": 760,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "0b72968c1fe0d99f",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "SAMPLE Clean Weight",
+        "func": "let raw = msg.payload.toString();\n\n// Split by commas\nlet parts = raw.split(\",\");\n\n// Make sure the expected value exists\nif (parts.length < 2) return null;\n\n// Get weight (second value)\nlet weight = parseFloat(parts[1]);\n\n// Ignore invalid readings\nif (isNaN(weight)) return null;\n\n// Output ONLY the weight\nmsg.payload = weight;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 180,
+        "wires": [
+            [
+                "c4c7b42dd424f471",
+                "569df630674c34f9",
+                "9d371b06965da25e"
+            ]
+        ]
+    },
+    {
+        "id": "9d371b06965da25e",
+        "type": "debug",
+        "z": "3b9534016f669eca",
+        "name": "debug 2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 350,
+        "y": 280,
+        "wires": []
+    }
+]
