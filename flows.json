@@ -140,7 +140,8 @@
         "y": 120,
         "wires": [
             [
-                "0b72968c1fe0d99f"
+                "0b72968c1fe0d99f",
+                "b487deaccb32b34d"
             ]
         ]
     },
@@ -148,9 +149,8 @@
         "id": "b487deaccb32b34d",
         "type": "function",
         "z": "3b9534016f669eca",
-        "d": true,
         "name": "Clean Weight",
-        "func": "let raw = msg.payload.toString();\nlet ZERO_OFFSET = 5.6;\n\nlet match = raw.match(/-?\\d+(\\.\\d+)?/);\nif (!match) return null;\n\nlet weight = parseFloat(match[0]);\n\nlet minChange = 0.10;\nlet stableDelay = 1500;\n\nlet lastWeight = context.get(\"lastWeight\");\nlet lastTime = context.get(\"lastTime\") || 0;\nlet now = Date.now();\n\nif (lastWeight !== undefined) {\n    let diff = Math.abs(weight - lastWeight);\n\n    if (diff < minChange) return null;\n    if (now - lastTime < stableDelay) return null;\n}\n\ncontext.set(\"lastWeight\", weight);\ncontext.set(\"lastTime\", now);\n\nmsg.payload = weight-ZERO_OFFSET;\nreturn msg;",
+        "func": "let raw = msg.payload.toString();\nlet ZERO_OFFSET = 5.8;\n\nlet match = raw.match(/-?\\d+(\\.\\d+)?/);\nif (!match) return null;\n\nlet weight = parseFloat(match[0]);\n\nlet minChange = 0.10;\nlet stableDelay = 1500;\n\nlet lastWeight = context.get(\"lastWeight\");\nlet lastTime = context.get(\"lastTime\") || 0;\nlet now = Date.now();\n\nif (lastWeight !== undefined) {\n    let diff = Math.abs(weight - lastWeight);\n\n    if (diff < minChange) return null;\n    if (now - lastTime < stableDelay) return null;\n}\n\ncontext.set(\"lastWeight\", weight);\ncontext.set(\"lastTime\", now);\n\nmsg.payload = weight-ZERO_OFFSET;\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -162,10 +162,8 @@
         "wires": [
             [
                 "569df630674c34f9",
-                "8ef5b70f03b4f687",
-                "c4c7b42dd424f471",
                 "6bb752cb82c49f4e",
-                "8f359317fbbf4864"
+                "9f40d63c028bead2"
             ]
         ]
     },
@@ -173,15 +171,15 @@
         "id": "030e085e41117983",
         "type": "file",
         "z": "3b9534016f669eca",
-        "name": "Food Waste CSV Logger (Raw)",
-        "filename": "/home/sustainabilitydept/food_waste_log.csv",
+        "name": "CSV Logger (End Day)",
+        "filename": "/home/sustainabilitydept/food_waste_log_end_day.csv",
         "filenameType": "str",
         "appendNewline": true,
         "createDir": true,
         "overwriteFile": "false",
         "encoding": "none",
-        "x": 910,
-        "y": 640,
+        "x": 840,
+        "y": 320,
         "wires": [
             []
         ]
@@ -191,58 +189,18 @@
         "type": "function",
         "z": "3b9534016f669eca",
         "name": "CSV Logger ",
-        "func": "let weight = Number(msg.payload);\nif (isNaN(weight)) return null;\n\nmsg.payload = {\n    date: new Date().toLocaleDateString(),\n    time: new Date().toLocaleTimeString(),\n    weight: weight,\n    dailyTotal: flow.get(\"dailyTotal\") || 0,\n    bagCount: flow.get(\"bagCount\") || 0,\n    event: \"weight_update\"\n};\n\nreturn msg;\n",
+        "func": "const savedTotal = flow.get(\"savedTotal\") || 0;\nconst lastWeight = flow.get(\"lastWeight\") || 0;\nconst oldBagWeight = flow.get(\"oldBagWeight\") || 0;\nconst bagState = flow.get(\"bagState\") || \"NORMAL\";\n\nconst currentWeight = bagState === \"NORMAL\"\n    ? lastWeight\n    : oldBagWeight;\n\nmsg.payload = Number((savedTotal + currentWeight).toFixed(2));\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 640,
+        "x": 610,
+        "y": 320,
         "wires": [
             [
                 "030e085e41117983"
-            ]
-        ]
-    },
-    {
-        "id": "393b48367d6798ba",
-        "type": "ui-button",
-        "z": "3b9534016f669eca",
-        "d": true,
-        "group": "79463d186665542c",
-        "name": "Bag Replaced",
-        "label": "Bag Changed",
-        "order": 1,
-        "width": "3",
-        "height": "1",
-        "emulateClick": false,
-        "tooltip": "",
-        "color": "",
-        "bgcolor": "",
-        "className": "",
-        "icon": "",
-        "iconPosition": "left",
-        "payload": "",
-        "payloadType": "str",
-        "topic": "topic",
-        "topicType": "msg",
-        "buttonColor": "#185e3a",
-        "textColor": "",
-        "iconColor": "",
-        "enableClick": true,
-        "enablePointerdown": false,
-        "pointerdownPayload": "",
-        "pointerdownPayloadType": "str",
-        "enablePointerup": false,
-        "pointerupPayload": "",
-        "pointerupPayloadType": "str",
-        "x": 260,
-        "y": 440,
-        "wires": [
-            [
-                "3a0ce7ee5551d681"
             ]
         ]
     },
@@ -251,40 +209,20 @@
         "type": "function",
         "z": "3b9534016f669eca",
         "name": "Add Daily Total ",
-        "func": "\nlet weight = Number(msg.payload);\nif (!Number.isFinite(weight)) return null;\n\nweight = Math.max(0, weight);\n\n// ======================================================\n// SETTINGS (HOME SCALE, IN POUNDS)\n// ======================================================\n\nconst NOISE_TOLERANCE = 0.05;\nconst REMOVAL_DROP = 0.5;\n\n// Weight below this means the scale is effectively empty\nconst EMPTY_THRESHOLD = 0.15;\n\n// Returning within this range means probably same bag\nconst BAG_RETURN_TOLERANCE = 0.3;\n\n// ======================================================\n// STORED STATE\n// ======================================================\n\nlet lastWeight = flow.get(\"lastWeight\");\nlet savedTotal = flow.get(\"savedTotal\") || 0;\n\n// States: NORMAL, REMOVING, EMPTY\nlet bagState = flow.get(\"bagState\") || \"NORMAL\";\n\nlet oldBagWeight = flow.get(\"oldBagWeight\") || 0;\n\n// ======================================================\n// HELPERS\n// ======================================================\n\nfunction display(total) {\n    msg.payload = Number(total.toFixed(2));\n    return msg;\n}\n\nfunction setStatus(color, message) {\n    node.status({\n        fill: color,\n        shape: \"dot\",\n        text: message\n    });\n}\n\n// ======================================================\n// FIRST READING\n// ======================================================\n\nif (lastWeight === undefined || lastWeight === null) {\n    flow.set(\"lastWeight\", weight);\n    return display(savedTotal + weight);\n}\n\n// ======================================================\n// NORMAL OPERATION\n// ======================================================\n\nif (bagState === \"NORMAL\") {\n\n    const difference = weight - lastWeight;\n\n    // Normal increase or small fluctuation\n    if (difference >= -NOISE_TOLERANCE) {\n\n        flow.set(\"lastWeight\", weight);\n\n        return display(savedTotal + weight);\n    }\n\n    // Possible removal\n    if (difference <= -REMOVAL_DROP) {\n\n        oldBagWeight = lastWeight;\n\n        flow.set(\"oldBagWeight\", oldBagWeight);\n\n        // If already near zero, skip directly to EMPTY\n        if (weight <= EMPTY_THRESHOLD) {\n            flow.set(\"bagState\", \"EMPTY\");\n\n            setStatus(\"yellow\", \"Bag removed - waiting\");\n        } else {\n            flow.set(\"bagState\", \"REMOVING\");\n\n            setStatus(\"yellow\", \"Possible bag removal\");\n        }\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    // Ignore small decreases\n    return display(savedTotal + lastWeight);\n}\n\n// ======================================================\n// POSSIBLE REMOVAL IN PROGRESS\n// ======================================================\n\nif (bagState === \"REMOVING\") {\n\n    // Scale has become empty\n    if (weight <= EMPTY_THRESHOLD) {\n\n        flow.set(\"bagState\", \"EMPTY\");\n\n        setStatus(\"yellow\", \"Scale empty - waiting\");\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    // Weight returned near original before reaching zero\n    if (\n        Math.abs(weight - oldBagWeight)\n        <= BAG_RETURN_TOLERANCE\n    ) {\n\n        flow.set(\"bagState\", \"NORMAL\");\n        flow.set(\"oldBagWeight\", 0);\n        flow.set(\"lastWeight\", weight);\n\n        setStatus(\"green\", \"Removal canceled\");\n\n        return display(savedTotal + weight);\n    }\n\n    // Still being lifted / fluctuating\n    return display(savedTotal + oldBagWeight);\n}\n\n// ======================================================\n// SCALE IS EMPTY\n// ======================================================\n\nif (bagState === \"EMPTY\") {\n\n    // Ignore ALL near-zero readings\n    // No stable reading counter is used\n    if (weight <= EMPTY_THRESHOLD) {\n\n        setStatus(\"yellow\", \"Waiting for bag to return\");\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    // Something has returned to the scale\n\n    const returnDifference =\n        Math.abs(weight - oldBagWeight);\n\n    // --------------------------------------------------\n    // SAME BAG RETURNED\n    // --------------------------------------------------\n\n    if (returnDifference <= BAG_RETURN_TOLERANCE) {\n\n        // Do not add anything to savedTotal\n        // Do not increment bagCount\n\n        flow.set(\"bagState\", \"NORMAL\");\n        flow.set(\"oldBagWeight\", 0);\n        flow.set(\"lastWeight\", weight);\n\n        setStatus(\"green\", \"Same bag returned\");\n\n        return display(savedTotal + weight);\n    }\n\n    // --------------------------------------------------\n    // DIFFERENT BAG RETURNED\n    // --------------------------------------------------\n\n    // Save weight of previous bag\n    savedTotal += oldBagWeight;\n\n    flow.set(\"savedTotal\", savedTotal);\n\n    // New bag becomes active\n    flow.set(\"lastWeight\", weight);\n\n    // Increment bag count\n    let bagCount = flow.get(\"bagCount\") || 0;\n    bagCount++;\n\n    flow.set(\"bagCount\", bagCount);\n\n    // Reset removal state\n    flow.set(\"bagState\", \"NORMAL\");\n    flow.set(\"oldBagWeight\", 0);\n\n    setStatus(\"green\", \"New bag detected\");\n\n    return display(savedTotal + weight);\n}\n\n// ======================================================\n// FALLBACK\n// ======================================================\n\nflow.set(\"bagState\", \"NORMAL\");\nreturn display(savedTotal + weight);\n",
+        "func": "\nlet weight = Number(msg.payload);\nif (!Number.isFinite(weight)) return null;\n\nweight = Math.max(0, weight);\n\n// ======================================================\n// SETTINGS (HOME SCALE, IN POUNDS)\n// ======================================================\n\nconst NOISE_TOLERANCE = 0.3;  // test: 0.05  // real: 0.3\nconst REMOVAL_DROP = 1;  // test: 0.5  // real: 1\n\n// Weight below this means the scale is effectively empty\nconst EMPTY_THRESHOLD = 0.15;  // test: 0.15  // real: 0.15\n\n// Returning within this range means probably same bag\nconst BAG_RETURN_TOLERANCE = 2;  // test: 0.3  // real: 2.0\n\n// Wait after something returns to the scale\nconst RETURN_SETTLE_MS = 2000;\n\n// ======================================================\n// STORED STATE\n// ======================================================\n\nlet lastWeight = flow.get(\"lastWeight\");\nlet savedTotal = flow.get(\"savedTotal\") || 0;\n\n// States: NORMAL, REMOVING, EMPTY, SETTLING\nlet bagState = flow.get(\"bagState\") || \"NORMAL\";\n\nlet oldBagWeight = flow.get(\"oldBagWeight\") || 0;\nlet returnStartTime = flow.get(\"returnStartTime\");\n\nconst now = Date.now();\n\n// ======================================================\n// HELPERS\n// ======================================================\n\nfunction display(total) {\n    msg.payload = Number(total.toFixed(2));\n    return msg;\n}\n\nfunction setStatus(color, message) {\n    node.status({\n        fill: color,\n        shape: \"dot\",\n        text: message\n    });\n}\n\nfunction resetBagState() {\n    flow.set(\"bagState\", \"NORMAL\");\n    flow.set(\"oldBagWeight\", 0);\n    flow.set(\"returnStartTime\", undefined);\n}\n\n// ======================================================\n// FIRST READING\n// ======================================================\n\nif (lastWeight === undefined || lastWeight === null) {\n    flow.set(\"lastWeight\", weight);\n    return display(savedTotal + weight);\n}\n\n// ======================================================\n// NORMAL OPERATION\n// ======================================================\n\nif (bagState === \"NORMAL\") {\n\n    const difference = weight - lastWeight;\n\n    // Normal increase or tiny fluctuation\n    if (difference >= -NOISE_TOLERANCE) {\n\n        flow.set(\"lastWeight\", weight);\n\n        return display(savedTotal + weight);\n    }\n\n    // Possible removal\n    if (difference <= -REMOVAL_DROP) {\n\n        oldBagWeight = lastWeight;\n        flow.set(\"oldBagWeight\", oldBagWeight);\n\n        if (weight <= EMPTY_THRESHOLD) {\n\n            flow.set(\"bagState\", \"EMPTY\");\n            setStatus(\"yellow\", \"Bag removed - waiting\");\n\n        } else {\n\n            flow.set(\"bagState\", \"REMOVING\");\n            setStatus(\"yellow\", \"Possible bag removal\");\n        }\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    // Ignore small decreases\n    return display(savedTotal + lastWeight);\n}\n\n// ======================================================\n// POSSIBLE REMOVAL IN PROGRESS\n// ======================================================\n\nif (bagState === \"REMOVING\") {\n\n    // Scale became empty\n    if (weight <= EMPTY_THRESHOLD) {\n\n        flow.set(\"bagState\", \"EMPTY\");\n        setStatus(\"yellow\", \"Scale empty - waiting\");\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    // Weight returned near original before reaching zero\n    if (\n        Math.abs(weight - oldBagWeight)\n        <= BAG_RETURN_TOLERANCE\n    ) {\n\n        flow.set(\"lastWeight\", weight);\n        resetBagState();\n\n        setStatus(\"green\", \"Removal canceled\");\n\n        return display(savedTotal + weight);\n    }\n\n    // Still being removed\n    return display(savedTotal + oldBagWeight);\n}\n\n// ======================================================\n// SCALE EMPTY\n// ======================================================\n\nif (bagState === \"EMPTY\") {\n\n    // Wait indefinitely while scale is empty\n    if (weight <= EMPTY_THRESHOLD) {\n\n        setStatus(\"yellow\", \"Waiting for bag to return\");\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    // Something has returned: start settling period\n    flow.set(\"bagState\", \"SETTLING\");\n    flow.set(\"returnStartTime\", now);\n\n    setStatus(\"yellow\", \"Bag returned - settling\");\n\n    return display(savedTotal + oldBagWeight);\n}\n\n// ======================================================\n// SETTLING PERIOD\n// ======================================================\n\nif (bagState === \"SETTLING\") {\n\n    // If bag is lifted again, restart the process\n    if (weight <= EMPTY_THRESHOLD) {\n\n        flow.set(\"bagState\", \"EMPTY\");\n        flow.set(\"returnStartTime\", undefined);\n\n        setStatus(\"yellow\", \"Scale empty again\");\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    const elapsed = now - (returnStartTime ?? now);\n\n    // Keep cumulative total frozen during settling\n    if (elapsed < RETURN_SETTLE_MS) {\n\n        const remaining = Math.ceil(\n            (RETURN_SETTLE_MS - elapsed) / 1000\n        );\n\n        setStatus(\n            \"yellow\",\n            \"Settling: \" + remaining + \"s\"\n        );\n\n        return display(savedTotal + oldBagWeight);\n    }\n\n    // --------------------------------------------------\n    // SETTLING COMPLETE: COMPARE WEIGHTS\n    // --------------------------------------------------\n\n    const returnDifference =\n        Math.abs(weight - oldBagWeight);\n\n    // Same bag returned\n    if (returnDifference <= BAG_RETURN_TOLERANCE) {\n\n        flow.set(\"lastWeight\", weight);\n        resetBagState();\n\n        setStatus(\"green\", \"Same bag returned\");\n\n        return display(savedTotal + weight);\n    }\n\n    // --------------------------------------------------\n    // NEW BAG DETECTED\n    // --------------------------------------------------\n\n    savedTotal += oldBagWeight;\n    flow.set(\"savedTotal\", savedTotal);\n\n    flow.set(\"lastWeight\", weight);\n\n    let bagCount = flow.get(\"bagCount\") || 0;\n    bagCount++;\n    flow.set(\"bagCount\", bagCount);\n\n    resetBagState();\n\n    setStatus(\"green\", \"New bag detected\");\n\n    return display(savedTotal + weight);\n}\n\n// ======================================================\n// FALLBACK\n// ======================================================\n\nresetBagState();\nreturn display(savedTotal + weight);\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 640,
-        "y": 340,
+        "x": 540,
+        "y": 160,
         "wires": [
             [
                 "8f359317fbbf4864",
-                "8ef5b70f03b4f687"
-            ]
-        ]
-    },
-    {
-        "id": "3a0ce7ee5551d681",
-        "type": "function",
-        "z": "3b9534016f669eca",
-        "d": true,
-        "name": "Bags Changed",
-        "func": "let bagCount = flow.get(\"bagCount\") || 0;\nbagCount += 1;\n\nflow.set(\"bagCount\", bagCount);\nflow.set(\"lastAcceptedWeight\", 0);\n\nmsg.payload = bagCount;\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 460,
-        "y": 440,
-        "wires": [
-            [
-                "9ac753573af9a588"
+                "4525052e27ac8917",
+                "1deb3d720c3024fa"
             ]
         ]
     },
@@ -301,7 +239,7 @@
         "finalize": "",
         "libs": [],
         "x": 440,
-        "y": 500,
+        "y": 260,
         "wires": [
             [],
             [
@@ -343,36 +281,11 @@
         "pointerupPayload": "",
         "pointerupPayloadType": "str",
         "x": 260,
-        "y": 500,
+        "y": 260,
         "wires": [
             [
                 "7bea578654a0806e"
             ]
-        ]
-    },
-    {
-        "id": "c4c7b42dd424f471",
-        "type": "ui-template",
-        "z": "3b9534016f669eca",
-        "d": true,
-        "group": "8be4956b52867ba2",
-        "page": "",
-        "ui": "",
-        "name": "UI Formatting",
-        "order": 1,
-        "width": "0",
-        "height": "0",
-        "head": "",
-        "format": "<style>\n/* Overall page */\nbody {\n    background: #f3f5f7 !important;\n    font-family: Inter, Arial, sans-serif;\n}\n\n/* Dashboard page content width */\n.nrdb-ui-page {\n    max-width: 1400px;\n    margin: 0 auto;\n}\n\n/* Group cards */\n.v-card {\n    border-radius: 22px !important;\n    box-shadow: 0 8px 24px rgba(0,0,0,0.06) !important;\n    border: 1px solid rgba(0,0,0,0.04);\n}\n\n/* Group titles */\n.nrdb-ui-group-header {\n    font-weight: 700 !important;\n    letter-spacing: 0.5px;\n}\n\n/* Buttons */\n.v-btn {\n    border-radius: 14px !important;\n    text-transform: none !important;\n    font-weight: 700 !important;\n    letter-spacing: 0.2px !important;\n    min-height: 48px;\n}\n\n/* Charts */\ncanvas {\n    border-radius: 16px;\n}\n</style>",
-        "storeOutMessages": true,
-        "passthru": true,
-        "resendOnRefresh": true,
-        "templateScope": "local",
-        "className": "",
-        "x": 940,
-        "y": 300,
-        "wires": [
-            []
         ]
     },
     {
@@ -393,33 +306,8 @@
         "resendOnRefresh": true,
         "templateScope": "local",
         "className": "",
-        "x": 930,
-        "y": 460,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "9ac753573af9a588",
-        "type": "ui-template",
-        "z": "3b9534016f669eca",
-        "d": true,
-        "group": "8be4956b52867ba2",
-        "page": "",
-        "ui": "",
-        "name": "UI - Bags Replaced",
-        "order": 2,
-        "width": "0",
-        "height": "0",
-        "head": "",
-        "format": "<template>\n    <div class=\"stat-card\">\n        <div class=\"stat-label\">BAGS REPLACED</div>\n\n        <div class=\"bag-value\">\n            {{ msg?.payload ?? 0 }}\n        </div>\n\n        <div class=\"stat-caption\">\n            Collection bags replaced today\n        </div>\n    </div>\n</template>\n\n<style>\n.stat-card {\n    width: 100%;\n    padding: 24px 26px;\n    border-radius: 20px;\n    background: white;\n    box-shadow: 0 8px 24px rgba(0,0,0,0.06);\n    box-sizing: border-box;\n}\n\n.stat-label {\n    font-size: 13px;\n    font-weight: 700;\n    letter-spacing: 1.2px;\n    opacity: 0.45;\n    margin-bottom: 10px;\n}\n\n.bag-value {\n    font-size: 42px;\n    font-weight: 750;\n    letter-spacing: -1px;\n    line-height: 1;\n}\n\n.stat-caption {\n    margin-top: 12px;\n    font-size: 12px;\n    opacity: 0.4;\n}\n</style>",
-        "storeOutMessages": true,
-        "passthru": true,
-        "resendOnRefresh": true,
-        "templateScope": "local",
-        "className": "",
-        "x": 670,
-        "y": 440,
+        "x": 830,
+        "y": 260,
         "wires": [
             []
         ]
@@ -481,8 +369,8 @@
         "height": 8,
         "className": "",
         "interpolation": "linear",
-        "x": 1090,
-        "y": 240,
+        "x": 1010,
+        "y": 40,
         "wires": [
             []
         ]
@@ -491,6 +379,7 @@
         "id": "8ef5b70f03b4f687",
         "type": "function",
         "z": "3b9534016f669eca",
+        "d": true,
         "name": "Function - Format for Graph",
         "func": "msg.payload = Number(msg.payload);\nmsg.topic = \"Weight\";\nreturn msg;",
         "outputs": 1,
@@ -499,8 +388,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 880,
-        "y": 240,
+        "x": 780,
+        "y": 40,
         "wires": [
             [
                 "7c3b36ac61c7f4f2"
@@ -512,24 +401,14 @@
         "type": "inject",
         "z": "3b9534016f669eca",
         "name": "US Lunch End",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
+        "props": [],
         "repeat": "",
         "crontab": "25 12 * * 1,2,3,4,5",
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 460,
-        "y": 700,
+        "x": 420,
+        "y": 380,
         "wires": [
             [
                 "910c5add22f164d6"
@@ -547,8 +426,8 @@
         "createDir": true,
         "overwriteFile": "false",
         "encoding": "none",
-        "x": 870,
-        "y": 700,
+        "x": 830,
+        "y": 380,
         "wires": [
             []
         ]
@@ -558,15 +437,15 @@
         "type": "function",
         "z": "3b9534016f669eca",
         "name": "updated_logger",
-        "func": "let weight = Number(msg.payload);\nif (isNaN(weight)) return null;\n\nmsg.payload = {\n    date: new Date().toLocaleDateString(),\n    time: new Date().toLocaleTimeString(),\n    weight: weight,\n    dailyTotal: flow.get(\"dailyTotal\") || 0,\n    bagCount: flow.get(\"bagCount\") || 0,\n    event: \"weight_update\"\n};\n\nreturn msg;\n",
+        "func": "\nconst savedTotal = flow.get(\"savedTotal\") || 0;\nconst lastWeight = flow.get(\"lastWeight\") || 0;\nconst oldBagWeight = flow.get(\"oldBagWeight\") || 0;\nconst bagState = flow.get(\"bagState\") || \"NORMAL\";\n\nconst currentWeight = bagState === \"NORMAL\"\n    ? lastWeight\n    : oldBagWeight;\n\n// Calculate cumulative daily weight\nconst dailyTotal = Number(\n    (savedTotal + currentWeight).toFixed(2)\n);\n\n// Create readable timestamp\nconst now = new Date();\n\nconst timestamp =\n    now.getFullYear() + \"-\" +\n    String(now.getMonth() + 1).padStart(2, \"0\") + \"-\" +\n    String(now.getDate()).padStart(2, \"0\") + \" \" +\n    String(now.getHours()).padStart(2, \"0\") + \":\" +\n    String(now.getMinutes()).padStart(2, \"0\") + \":\" +\n    String(now.getSeconds()).padStart(2, \"0\");\n\n// Format for CSV logging\nmsg.payload = {\n    timestamp: timestamp,\n    dailyTotal: dailyTotal\n};\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 660,
-        "y": 700,
+        "x": 620,
+        "y": 380,
         "wires": [
             [
                 "ca2768107782e6e3"
@@ -578,15 +457,15 @@
         "type": "function",
         "z": "3b9534016f669eca",
         "name": "updated_logger",
-        "func": "let weight = Number(msg.payload);\nif (isNaN(weight)) return null;\n\nmsg.payload = {\n    date: new Date().toLocaleDateString(),\n    time: new Date().toLocaleTimeString(),\n    weight: weight,\n    dailyTotal: flow.get(\"dailyTotal\") || 0,\n    bagCount: flow.get(\"bagCount\") || 0,\n    event: \"weight_update\"\n};\n\nreturn msg;\n",
+        "func": "\nconst savedTotal = flow.get(\"savedTotal\") || 0;\nconst lastWeight = flow.get(\"lastWeight\") || 0;\nconst oldBagWeight = flow.get(\"oldBagWeight\") || 0;\nconst bagState = flow.get(\"bagState\") || \"NORMAL\";\n\nconst currentWeight = bagState === \"NORMAL\"\n    ? lastWeight\n    : oldBagWeight;\n\n// Calculate cumulative daily weight\nconst dailyTotal = Number(\n    (savedTotal + currentWeight).toFixed(2)\n);\n\n// Create readable timestamp\nconst now = new Date();\n\nconst timestamp =\n    now.getFullYear() + \"-\" +\n    String(now.getMonth() + 1).padStart(2, \"0\") + \"-\" +\n    String(now.getDate()).padStart(2, \"0\") + \" \" +\n    String(now.getHours()).padStart(2, \"0\") + \":\" +\n    String(now.getMinutes()).padStart(2, \"0\") + \":\" +\n    String(now.getSeconds()).padStart(2, \"0\");\n\n// Format for CSV logging\nmsg.payload = {\n    timestamp: timestamp,\n    dailyTotal: dailyTotal\n};\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 660,
-        "y": 760,
+        "x": 620,
+        "y": 440,
         "wires": [
             [
                 "8c7a8f95fa2f6072"
@@ -598,24 +477,14 @@
         "type": "inject",
         "z": "3b9534016f669eca",
         "name": "MS Lunch End",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
+        "props": [],
         "repeat": "",
-        "crontab": "15 01 * * 1,2,3,4,5",
+        "crontab": "15 13 * * 1,2,3,4,5",
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 460,
-        "y": 760,
+        "x": 420,
+        "y": 440,
         "wires": [
             [
                 "1961a1f21310e90a"
@@ -633,8 +502,8 @@
         "createDir": true,
         "overwriteFile": "false",
         "encoding": "none",
-        "x": 870,
-        "y": 760,
+        "x": 830,
+        "y": 440,
         "wires": [
             []
         ]
@@ -643,7 +512,8 @@
         "id": "0b72968c1fe0d99f",
         "type": "function",
         "z": "3b9534016f669eca",
-        "name": "SAMPLE Clean Weight",
+        "d": true,
+        "name": "SAMPLE Weight",
         "func": "let raw = msg.payload.toString();\n\n// Split by commas\nlet parts = raw.split(\",\");\n\n// Make sure the expected value exists\nif (parts.length < 2) return null;\n\n// Get weight (second value)\nlet weight = parseFloat(parts[1]);\n\n// Ignore invalid readings\nif (isNaN(weight)) return null;\n\n// Output ONLY the weight\nmsg.payload = weight;\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
@@ -651,13 +521,50 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 350,
-        "y": 180,
+        "x": 330,
+        "y": 160,
         "wires": [
             [
-                "c4c7b42dd424f471",
-                "569df630674c34f9"
+                "569df630674c34f9",
+                "9f40d63c028bead2"
             ]
+        ]
+    },
+    {
+        "id": "cbf2dc5e09424ca0",
+        "type": "inject",
+        "z": "3b9534016f669eca",
+        "name": "Daily Reset",
+        "props": [],
+        "repeat": "",
+        "crontab": "00 10 * * 1,2,3,4,5",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 410,
+        "y": 500,
+        "wires": [
+            [
+                "081c80b85684d3dd"
+            ]
+        ]
+    },
+    {
+        "id": "081c80b85684d3dd",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "reset_variables",
+        "func": "// DAILY RESET — 10:00 AM\n\nflow.set(\"savedTotal\", 0);\nflow.set(\"bagCount\", 0);\n\n// Reset bag detection state\nflow.set(\"bagState\", \"NORMAL\");\nflow.set(\"oldBagWeight\", 0);\nflow.set(\"returnStartTime\", undefined);\n\n// Reset last accepted weight\nflow.set(\"lastWeight\", 0);\n\n// Update dashboard\nmsg.payload = 0;\n\nnode.status({\n    fill: \"green\",\n    shape: \"dot\",\n    text: \"Daily reset completed\"\n});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 500,
+        "wires": [
+            []
         ]
     },
     {
@@ -672,8 +579,176 @@
         "complete": "false",
         "statusVal": "",
         "statusType": "auto",
-        "x": 560,
-        "y": 100,
+        "x": 500,
+        "y": 20,
         "wires": []
+    },
+    {
+        "id": "797a42f2333ec043",
+        "type": "file",
+        "z": "3b9534016f669eca",
+        "name": "CSV Logger (Cleaned)",
+        "filename": "/home/sustainabilitydept/food_waste_log_cleaned.csv",
+        "filenameType": "str",
+        "appendNewline": true,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 1140,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "15f868d8e1cae6ad",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "cleaned_logger",
+        "func": "const weight = Number(msg.payload);\nif (!Number.isFinite(weight)) return null;\n\nconst now = new Date();\n\n// ======================================================\n// WEEKDAY FILTER (MONDAY–FRIDAY)\n// ======================================================\n\n// 0 = Sunday, 1 = Monday, ..., 6 = Saturday\nconst day = now.getDay();\n\nif (day === 0 || day === 6) {\n    return null;\n}\n\n// ======================================================\n// TIME FILTER (11:35 AM–1:20 PM)\n// ======================================================\n\nconst currentTime = now.getHours() * 60 + now.getMinutes();\n\nconst startTime = 11 * 60 + 35;\nconst endTime = 13 * 60 + 20;\n\n\nif (currentTime < startTime || currentTime >= endTime) {\n    return null;\n}\n\n// ======================================================\n// HUMAN-READABLE TIMESTAMP\n// ======================================================\n\nconst timestamp =\n    now.getFullYear() + \"-\" +\n    String(now.getMonth() + 1).padStart(2, \"0\") + \"-\" +\n    String(now.getDate()).padStart(2, \"0\") + \" \" +\n    String(now.getHours()).padStart(2, \"0\") + \":\" +\n    String(now.getMinutes()).padStart(2, \"0\") + \":\" +\n    String(now.getSeconds()).padStart(2, \"0\");\n\n// ======================================================\n// CSV LOGGING\n// ======================================================\n\nmsg.payload = {\n    timestamp: timestamp,\n    weight: Number(weight.toFixed(2))\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 940,
+        "y": 160,
+        "wires": [
+            [
+                "797a42f2333ec043"
+            ]
+        ]
+    },
+    {
+        "id": "5c96403be2d28d97",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "ALL_logger",
+        "func": "const now = new Date();\n\nconst timestamp =\n    now.getFullYear() + \"-\" +\n    String(now.getMonth() + 1).padStart(2, \"0\") + \"-\" +\n    String(now.getDate()).padStart(2, \"0\") + \" \" +\n    String(now.getHours()).padStart(2, \"0\") + \":\" +\n    String(now.getMinutes()).padStart(2, \"0\") + \":\" +\n    String(now.getSeconds()).padStart(2, \"0\");\n\nmsg.payload = {\n    timestamp: timestamp,\n    weight: msg.payload\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 930,
+        "y": 120,
+        "wires": [
+            [
+                "bfa87c86bb7eb70c"
+            ]
+        ]
+    },
+    {
+        "id": "bfa87c86bb7eb70c",
+        "type": "file",
+        "z": "3b9534016f669eca",
+        "name": "CSV Logger (ALL)",
+        "filename": "/home/sustainabilitydept/food_waste_log.csv",
+        "filenameType": "str",
+        "appendNewline": true,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 1130,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9f40d63c028bead2",
+        "type": "delay",
+        "z": "3b9534016f669eca",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "20",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 740,
+        "y": 120,
+        "wires": [
+            [
+                "5c96403be2d28d97"
+            ]
+        ]
+    },
+    {
+        "id": "4525052e27ac8917",
+        "type": "delay",
+        "z": "3b9534016f669eca",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "20",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 740,
+        "y": 160,
+        "wires": [
+            [
+                "15f868d8e1cae6ad"
+            ]
+        ]
+    },
+    {
+        "id": "89e81a017243d03c",
+        "type": "ui-text",
+        "z": "3b9534016f669eca",
+        "group": "06b0149ad0ba149d",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "name": "Text - Meals of Food",
+        "label": "",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 1080,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "1deb3d720c3024fa",
+        "type": "function",
+        "z": "3b9534016f669eca",
+        "name": "Equivalency Conversion",
+        "func": "\nconst dailyTotal = Number(msg.payload);\n\nif (!Number.isFinite(dailyTotal)) return null;\n\n// Feeding America: approximately 1.2 lb per meal\nconst POUNDS_PER_MEAL = 1.2;\n\nconst meals = Math.round(dailyTotal / POUNDS_PER_MEAL);\n\n// Send to dashboard text widget\nmsg.payload = `That's equivalent to approximately ${meals} meals worth of food by weight!`;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 830,
+        "y": 220,
+        "wires": [
+            [
+                "89e81a017243d03c"
+            ]
+        ]
     }
 ]
